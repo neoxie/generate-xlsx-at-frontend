@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Generate XLSX at Frontend
 
-## Getting Started
+前端生成 XLSX 文件的演示项目。通过 Next.js API 获取模拟员工数据，在浏览器端使用 ExcelJS 生成带丰富格式的 Excel 文件并触发下载。
 
-First, run the development server:
+## 技术栈
+
+- **Next.js 16** + React 19 + TypeScript
+- **ExcelJS** — 浏览器端 Excel 文件生成与格式化
+- **TanStack Query** — 数据获取与状态管理
+- **Tailwind CSS 4** — 页面样式
+
+## 功能
+
+- 按部门分 Sheet（技术部、市场部、人事部、财务部）
+- 表头深色背景 + 白色加粗字体
+- 奇偶行交替背景色
+- 绩效等级条件着色（A 绿 / B 蓝 / C 黄 / D 红）
+- 薪资数字格式化与颜色区分
+- 冻结首行 + 自动筛选
+- 一键导出 `.xlsx` 文件
+
+## 快速开始
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+打开 http://localhost:3000，点击「导出员工信息表」按钮即可下载 Excel 文件。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 其他命令
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build    # 生产构建
+npm run lint     # ESLint 检查
+npx tsc --noEmit # 类型检查
+```
 
-## Learn More
+## 项目结构
 
-To learn more about Next.js, take a look at the following resources:
+```
+app/
+  api/employees/route.ts   # API 路由，返回模拟员工 JSON
+  page.tsx                 # 下载页面（客户端组件）
+  layout.tsx               # 根布局
+  globals.css              # 全局样式
+lib/
+  xlsx-generator.ts        # ExcelJS 生成逻辑（按部门分 Sheet、格式化）
+  types.ts                 # Employee 类型定义
+  query-provider.tsx       # TanStack Query Provider 封装
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 架构
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+数据流经三层：
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **API 层** — Next.js Route Handler 返回硬编码的员工 JSON
+2. **生成层** — 纯函数 `generateXlsx(employees)`，使用 ExcelJS 分组创建工作表并应用格式
+3. **页面层** — TanStack Query（`enabled: false` + `refetch()`）按需获取数据，生成 Blob 触发浏览器下载

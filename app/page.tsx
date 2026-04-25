@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { saveAs } from 'file-saver';
 import { generateXlsx } from '@/lib/xlsx-generator';
 import type { Employee } from '@/lib/types';
 
@@ -31,14 +32,7 @@ export default function Home() {
       const blob = new Blob([buffer], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `员工信息表_${new Date().toISOString().slice(0, 10)}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      saveAs(blob, `员工信息表_${new Date().toISOString().slice(0, 10)}.xlsx`);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '文件生成失败');
       setTimeout(() => setErrorMsg(''), 3000);
