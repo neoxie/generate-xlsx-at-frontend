@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { saveAs } from 'file-saver';
-import { generateXlsx } from '@/lib/xlsx-generator';
+import { generateXlsxZip } from '@/lib/xlsx-generator';
 import type { Employee } from '@/lib/types';
 
 export default function Home() {
@@ -28,11 +28,9 @@ export default function Home() {
       if (result.isError || !result.data) {
         throw new Error(result.error?.message || '获取数据失败');
       }
-      const buffer = await generateXlsx(result.data);
-      const blob = new Blob([buffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      saveAs(blob, `员工信息表_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      const buffer = await generateXlsxZip(result.data);
+      const blob = new Blob([buffer], { type: 'application/zip' });
+      saveAs(blob, `员工信息表_${new Date().toISOString().slice(0, 10)}.zip`);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '文件生成失败');
       setTimeout(() => setErrorMsg(''), 3000);

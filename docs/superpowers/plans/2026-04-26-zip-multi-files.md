@@ -1,3 +1,46 @@
+# Zip Multi-Files Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 将单文件多 sheet 导出改为每个部门一个 xlsx 文件，打包成 zip 下载。
+
+**Architecture:** 从 `lib/xlsx-generator.ts` 抽取单部门 workbook 生成逻辑，新增 `generateXlsxZip()` 使用 JSZip 打包多个 xlsx。`app/page.tsx` 切换调用并适配 zip MIME type。
+
+**Tech Stack:** ExcelJS, JSZip, file-saver, TanStack Query
+
+---
+
+### Task 1: Install jszip as direct dependency
+
+**Files:**
+- Modify: `package.json`
+
+- [ ] **Step 1: Install jszip**
+
+Run: `npm install jszip`
+
+- [ ] **Step 2: Verify type declarations exist**
+
+Run: `ls node_modules/jszip/index.d.ts`
+Expected: file exists (JSZip ships its own types)
+
+- [ ] **Step 3: Type check baseline**
+
+Run: `npx tsc --noEmit`
+Expected: no errors (existing code still compiles)
+
+---
+
+### Task 2: Refactor xlsx-generator.ts — extract per-department workbook creation and add generateXlsxZip
+
+**Files:**
+- Modify: `lib/xlsx-generator.ts`
+
+- [ ] **Step 1: Add JSZip import and create `createDepartmentWorkbook` function, refactor `generateXlsx`, add `generateXlsxZip`**
+
+Replace the entire file content with:
+
+```typescript
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import type { Employee } from './types';
@@ -146,3 +189,117 @@ export async function generateXlsxZip(employees: Employee[]): Promise<ArrayBuffe
 
   return zip.generateAsync({ type: 'arraybuffer' });
 }
+```
+
+- [ ] **Step 2: Type check**
+
+Run: `npx tsc --noEmit`
+Expected: no errors
+
+---
+
+### Task 3: Update page.tsx to use generateXlsxZip
+
+**Files:**
+- Modify: `app/page.tsx`
+
+- [ ] **Step 1: Update import, blob creation, and filename**
+
+Change the import on line 6:
+
+```typescript
+import { generateXlsxZip } from '@/lib/xlsx-generator';
+```
+
+Change lines 31-35 (the buffer + blob + saveAs block):
+
+```typescript
+      const buffer = await generateXlsxZip(result.data);
+      const blob = new Blob([buffer], { type: 'application/zip' });
+      saveAs(blob, `员工信息表_${new Date().toISOString().slice(0, 10)}.zip`);
+```
+
+- [ ] **Step 2: Type check**
+
+Run: `npx tsc --noEmit`
+Expected: no errors
+
+- [ ] **Step 3: Verify the full page.tsx reads correctly**
+
+The final file should be:
+
+```typescript
+'use client';
+
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { saveAs } from 'file-saver';
+import { generateXlsxZip } from '@/lib/xlsx-generator';
+import type { Employee } from '@/lib/types';
+
+export default function Home() {
+  const [downloading, setDownloading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const { refetch } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async (): Promise<Employee[]> => {
+      const res = await fetch('/api/employees');
+      if (!res.ok) throw new Error('获取数据失败');
+      return res.json();
+    },
+    enabled: false,
+  });
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    setErrorMsg('');
+    try {
+      const result = await refetch();
+      if (result.isError || !result.data) {
+        throw new Error(result.error?.message || '获取数据失败');
+      }
+      const buffer = await generateXlsxZip(result.data);
+      const blob = new Blob([buffer], { type: 'application/zip' });
+      saveAs(blob, `员工信息表_${new Date().toISOString().slice(0, 10)}.zip`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : '文件生成失败');
+      setTimeout(() => setErrorMsg(''), 3000);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">员工信息导出</h1>
+        <button
+          onClick={handleDownload}
+          disabled={downloading}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
+        >
+          {downloading ? '生成中...' : '导出员工信息表'}
+        </button>
+        {errorMsg && <p className="mt-4 text-red-600">{errorMsg}</p>}
+      </div>
+    </main>
+  );
+}
+```
+
+---
+
+### Task 4: End-to-end verification
+
+- [ ] **Step 1: Start dev server**
+
+Run: `npm run dev`
+
+- [ ] **Step 2: Open http://localhost:3000 in browser, click download button**
+
+Expected: a file named `员工信息表_YYYY-MM-DD.zip` downloads.
+
+- [ ] **Step 3: Extract the zip and verify contents**
+
+Expected: zip contains 4 files — `技术部.xlsx`, `市场部.xlsx`, `人事部.xlsx`, `财务部.xlsx`. Each opens correctly in Excel with proper formatting (header style, alternating rows, conditional coloring).
